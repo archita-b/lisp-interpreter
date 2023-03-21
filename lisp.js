@@ -12,13 +12,27 @@ const globalEnv = {
 }
 
 const arithmatic = input => {
+	// console.log(input);
 	input = input.slice(1);
-	const operator = opParser(input);
-	input = input.slice(operator.length);
-	const args = argParser(input);
-	let result;
-	if (Object.keys(globalEnv).includes(operator)) {
-		result = globalEnv[operator](args);
+	let result, args;
+	console.log(input[0]);
+	while (input[0] !== '(') {
+		let operator = opParser(input);
+		// console.log(operator);
+		input = input.slice(operator.length).trim();
+		// console.log(input);
+		if (input[0] !== '(') {
+		// console.log(input[0]);
+			args = argParser(input);
+			if (Object.keys(globalEnv).includes(operator)) {
+				result = globalEnv[operator](args);
+			}
+		} else {
+			// input = input.slice(1);
+			continue;
+		}
+		// console.log(input);
+		
 	}
 	return result !== null ? result : `Expected 2 arguments, got ${args.length}`;
 }
@@ -41,4 +55,4 @@ const argParser = input => {
 	return args.filter(e => e !== ' ');
 }
 
-console.log(arithmatic("(/ 4 2 1)"));
+console.log(arithmatic("(/ (+ 4 2) 2)"));

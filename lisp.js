@@ -13,10 +13,33 @@ const globalEnv = {
 }
 
 const exprParser = input => {
-	const result = booleanParser(input) || numParser(input) || stringParser(input)
-					|| sExprParser(input);
+	let result, str = '';
+	if (!input.startsWith('(')) {
+		result = booleanParser(input) || numParser(input) || stringParser(input);
+	} else {
+		str = input.slice(1);
+		let paren = 1;
+		let sCount = 0;
+		while (paren !== 0) {
+			sCount++;
+		if (str[0] === '(') {
+			paren++;
+			str = str.slice(1);
+			// result = sExprParser(input);
+		} else if (str[0] === ')') {
+			paren--;
+			str = str.slice(1);
+		} else {
+			str = str.slice(1);
+		}
+	}
+	while (input[0] !== ')') {
+		result = sExprParser(input);
+	}
+	}
 	if (result === null) return null;
-	return result[0];
+	return [result, input.slice(input.length - str.length).trim()];
+	// return result;
 }
 
 const booleanParser = input => {
@@ -123,13 +146,19 @@ const argsParser = input => {
 }
 
 const sExprParser = input => {
+	let result;
 	if (input.startsWith('(')) {
 		input = input.slice(1);
 		const fn = fnParser(input);
-		input = input.slice(fn.length);
+		input = input.slice(fn.length).trim();
+		const args = argsParser(input);
+		if (Object.keys(globalEnv).includes(fn)) {
+			result = globalEnv[fn](args);
+		}
 	}
+	return result;
 }
-console.log(exprParser('(+ 1 2)ert'));
+console.log(exprParser('(+ (+ 4 5) 2)'));
 
 
 

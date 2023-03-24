@@ -8,38 +8,7 @@ const globalEnv = {
 	'>=': args => args.length === 2 ? args[0] >= args[1] : null,
 	'<=': args => args.length === 2 ? args[0] <= args[1] : null,
 	'=': args => args.length === 2 ? args[0] = args[1] : null,
-	'sqrt': args => Math.sqrt(args[0]),
-	'pi' : Math.PI
-}
-
-const exprParser = input => {
-	let result, str = '';
-	if (!input.startsWith('(')) {
-		result = booleanParser(input) || numParser(input) || stringParser(input);
-	} else {
-		str = input.slice(1);
-		let paren = 1;
-		let sCount = 0;
-		while (paren !== 0) {
-			sCount++;
-		if (str[0] === '(') {
-			paren++;
-			str = str.slice(1);
-			// result = sExprParser(input);
-		} else if (str[0] === ')') {
-			paren--;
-			str = str.slice(1);
-		} else {
-			str = str.slice(1);
-		}
-	}
-	while (input[0] !== ')') {
-		result = sExprParser(input);
-	}
-	}
-	if (result === null) return null;
-	return [result, input.slice(input.length - str.length).trim()];
-	// return result;
+	'sqrt': args => Math.sqrt(args[0])
 }
 
 const booleanParser = input => {
@@ -133,32 +102,47 @@ const fnParser = input => {
 		fn += input[0];
 		input = input.slice(1);
 	}
-	return fn;
+	return [fn, input.slice(1)];
 }
 
 const argsParser = input => {
 	const args = [];
 	while (input[0] !== ')') {
-		args.push(input[0]);
-		input= input.slice(1).trim();
+		input = input.trim();
+		const parsedValue = exprParser(input);
+		args.push(parsedValue[0]);
+		input = parsedValue[1];
 	}
-	return args;
+	return [args, input.slice(1)];
 }
 
 const sExprParser = input => {
 	let result;
 	if (input.startsWith('(')) {
 		input = input.slice(1);
-		const fn = fnParser(input);
-		input = input.slice(fn.length).trim();
+		const fn = fnParser(input)[0];
+		input = fnParser(input)[1];
 		const args = argsParser(input);
 		if (Object.keys(globalEnv).includes(fn)) {
-			result = globalEnv[fn](args);
+			result = globalEnv[fn](args[0]);
 		}
+		return [result, args[1]];
 	}
+}
+
+const exprParser = input => {
+	let result;
+	if (!input.startsWith('(')) {
+		result = booleanParser(input) || numParser(input) || stringParser(input);
+	} else {
+		result = sExprParser(input);
+	}
+	if (result === null) return null;
 	return result;
 }
-console.log(exprParser('(+ (+ 4 5) 2)'));
+const input = '(* 2 (/ 10 10))';
+console.log('input =', input);
+console.log(exprParser(input));
 
 
 

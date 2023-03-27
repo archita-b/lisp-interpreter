@@ -98,7 +98,7 @@ const specialCharParser = input => {
 
 const fnParser = input => {
 	let fn = '';
-	while (input[0] !== ' ') {
+	while (!input[0].match(/\s/)) {
 		fn += input[0];
 		input = input.slice(1);
 	}
@@ -107,40 +107,35 @@ const fnParser = input => {
 
 const argsParser = input => {
 	const args = [];
+	input = input.trim();
 	while (input[0] !== ')') {
-		input = input.trim();
 		const parsedValue = exprParser(input);
 		args.push(parsedValue[0]);
-		input = parsedValue[1];
+		input = parsedValue[1].trim();
 	}
 	return [args, input.slice(1)];
 }
 
 const sExprParser = input => {
 	let result;
-	if (input.startsWith('(')) {
-		input = input.slice(1);
-		const fn = fnParser(input)[0];
-		input = fnParser(input)[1];
-		const args = argsParser(input);
-		if (Object.keys(globalEnv).includes(fn)) {
-			result = globalEnv[fn](args[0]);
-		}
-		return [result, args[1]];
-	}
+	if (!input.startsWith('(')) return null;
+	input = input.slice(1).trim();
+	const fn = fnParser(input)[0];
+	input = fnParser(input)[1];
+	const args = argsParser(input);
+	const func = globalEnv[fn];
+	if (func === undefined) return null;
+	result = func([args[0]]); 
+	return [result, args[1]];
 }
 
 const exprParser = input => {
-	let result;
-	if (!input.startsWith('(')) {
-		result = booleanParser(input) || numParser(input) || stringParser(input);
-	} else {
-		result = sExprParser(input);
-	}
+	let result = booleanParser(input) || numParser(input) || stringParser(input) 
+					|| sExprParser(input);
 	if (result === null) return null;
 	return result;
 }
-const input = '(* 2 (/ 10 10))';
+const input = '(/ 4 2)';
 console.log('input =', input);
 console.log(exprParser(input));
 

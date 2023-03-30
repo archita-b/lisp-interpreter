@@ -8,8 +8,10 @@ const globalEnv = {
 	'>=': args => args.length === 2 ? args[0] >= args[1] : null,
 	'<=': args => args.length === 2 ? args[0] <= args[1] : null,
 	'=': args => args.length === 2 ? args[0] = args[1] : null,
-	'sqrt': args => Math.sqrt(args[0])
+	'sqrt': args => Math.sqrt(args[0]),	
 }
+
+
 
 const booleanParser = input => {
 	if (input.startsWith('true')) {
@@ -106,32 +108,47 @@ const fnParser = input => {
 }
 
 const sExprParser = input => {
-	input = input.slice(1);
+	input = input.trim();
+	let str = input.slice(1);
+	let bracketCount = 1;
+	while (bracketCount !== 0) {
+		if (str[0] === '(') bracketCount++;
+		if (str[0] === ')') bracketCount--;
+		str = str.slice(1);
+	}
+	if (bracketCount === 0)
+		return [input.slice(0, input.length - str.length), str];
+}
+
+const sExprEval = input => {
+	input = input.trim().slice(1);
 	const args = [];
 	let result;
 	const fn = fnParser(input)[0];
 	input = fnParser(input)[1];
-	while (input[0] !== ')') {
-		const parsed = exprParser(input);
-		if (parsed === null) return null;
-		args.push(parsed[0]);
-		input = parsed[1];
-		console.log('input2 =', input);
-	}
+
 	if (!splForms.includes(fn)) {
+		while (input[0] !== ')') {
+			const parsed = exprParser(input);
+			if (parsed === null) return null;
+			args.push(parsed[0]);
+			input = parsed[1];
+		}
 		const func = globalEnv[fn];
 		if (func === undefined) return null;
 		result = func(args);
+		return [result, input.slice(1)];
 	} else {
-		result = ifParser(input);
+		// result = ifParser(input);
+		result = defineParser(input);
+		return result;
 	}
-	return [result, input.slice(1)];
 }
 
 const exprParser = input => {
 	input = input.trim();
 	let result = booleanParser(input) || numParser(input) || stringParser(input)
-		|| sExprParser(input);
+		|| sExprEval(input);
 	if (result === null) return null;
 	return result;
 }
@@ -139,18 +156,38 @@ const exprParser = input => {
 const splForms = ['if', 'define', 'begin', 'quote', 'lambda'];
 
 const ifParser = input => {
-	const parsed = sExprParser(input);
+	
+	let parsed = exprParser(input);
 	const condition = parsed[0];
 	input = parsed[1].trim();
-	const trueParsed = sExprParser(input);
-	const trueVal = trueParsed[0];
-	input = trueParsed[1].trim();
-	const falseParsed = sExprParser(input);
-	const falseVal = falseParsed[0];
-	input = falseParsed[1].trim();
-	return condition === true ? trueVal : falseVal;
+	let val;
+
+	if (condition === true) {
+		const trueParsed = exprParser(input);
+		val = trueParsed[0];
+		input = trueParsed[1];
+		input = sExprParser(input)[1];
+	} else {
+		input = sExprParser(input);
+		const falseParsed = exprParser(input[1]);
+		val = falseParsed[0];
+		input = falseParsed[1];
+	}
+	if (input[0] !== ')') return null;
+	return [val, input.slice(1)];
 }
 
-const input = '(if (> 4 5) 1 2)';
+const defineParser = input => {
+	const args = fnParser(input);
+	const identifier = args[0];
+	input = args[1];
+	// console.log('identifier =', identifier, 'input =', input);
+	const value = exprParser(input)[0];
+	// console.log(value);
+	return globalEnv[identifier] = value;
+	
+}
+
+const input = '(define x 1)';
 console.log('input =', input);
 console.log(exprParser(input));

@@ -9,7 +9,8 @@ const globalEnv = {
 	'<=': args => args.length === 2 ? args[0] <= args[1] : null,
 	'=': args => args.length === 2 ? args[0] = args[1] : null,
 	'sqrt': args => Math.sqrt(args[0]),	
-	'pow' : args => args.length === 2 ? Math.pow(args[0], args[1]) : null
+	'pow' : args => args.length === 2 ? Math.pow(args[0], args[1]) : null,
+	'pi' : Math.PI
 	// '#t' : true
 }
 
@@ -100,13 +101,16 @@ const specialCharParser = input => {
 	}
 }
 
-const fnParser = input => {
-	let fn = '';
+const symbolParser = input => {
+	let symbol = '';
+	
 	while (!input[0].match(/\s/)) {
-		fn += input[0];
+		// console.log('in =', input[0])
+		symbol += input[0];
 		input = input.slice(1);
+		if (input[0] === ')') return [symbol, input];	
 	}
-	return [fn, input.slice(1)];
+	return [symbol, input.slice(1)];
 }
 
 const sExprParser = input => {
@@ -132,25 +136,27 @@ const sExprEval = input => {
 
 	input = input.trim().slice(1);
 	const args = [];
-	const fn = fnParser(input)[0];
-	input = fnParser(input)[1];
+	const parsedSymbol = symbolParser(input);
+	if (parsedSymbol === null) return null;
+	const symbol = parsedSymbol[0];
+	input = parsedSymbol[1];
 	let result;
 
-	if (!splForms.includes(fn)) {
+	if (!splForms.includes(symbol)) {
 		while (input[0] !== ')') {
 			const parsed = exprParser(input);
 			if (parsed === null) return null;
 			args.push(parsed[0]);
 			input = parsed[1];
 		}
-		const func = globalEnv[fn];
+		const func = globalEnv[symbol];
 		if (func === undefined) return null;
 		result = func(args);
 		return [result, input.slice(1)];
 
 	} else {
 
-		switch (fn) {
+		switch (symbol) {
 			case 'if':
 				result = ifParser(input);
 				break;
@@ -167,26 +173,27 @@ const sExprEval = input => {
 
 const exprParser = input => {
 	input = input.trim();
-	let result = booleanParser(input) || numParser(input) || stringParser(input)
+	return booleanParser(input) || numParser(input) || stringParser(input) 
 		|| sExprEval(input);
-	if (result === null) return null;
-	return result;
 }
 
 const splForms = ['if', 'define', 'begin', 'quote', 'lambda'];
 
 const ifParser = input => {
 	
-	let parsed = exprParser(input);
+	const parsed = exprParser(input);
+	if (parsed === null) return null;
 	const condition = parsed[0];
 	input = parsed[1].trim();
 	let val;
 
-	if (condition === true) {
+	// if (condition === true) {
+		if (condition !== false) {
+
 		const trueParsed = exprParser(input);
+		if (trueParsed === null) return null;
 		val = trueParsed[0];
 		input = trueParsed[1];
-		console.log('val =', val,'input1 =', input);
 		input = sExprParser(input)[1];
 	} else {
 		input = sExprParser(input);
@@ -202,23 +209,43 @@ const ifParser = input => {
 
 const defineParser = input => {
 
-	const args = fnParser(input);
-	const identifier = args[0];
-	input = args[1];
-	const value = exprParser(input)[0];
-	globalEnv[identifier] = value;
+	const parsed = symbolParser(input);
+	if (parsed === null) return null;
+	const identifier = parsed[0];
+	input = parsed[1];
+
+	const parsedvalue = exprParser(input);
+	if (parsedvalue === null) return null;
+	const value = parsedvalue[0];
+	input = parsedvalue[1];
+
+	return [globalEnv[identifier] = value, input.slice(1)];
 
 }
 
 const beginParser = input => {
-	console.log('input1 =', input);
+	input = input.trim();
 	while (input[0] !== ')') {
 		const parsed = exprParser(input);
+		if (parsed === null) return null;
 		const val = parsed[0];
+		// console.log('val =', val);
 		input = parsed[1];
+		// console.log('input1 =', input);
 	}
 }
 
-const input = '(begin (define x 1) (+ x 1))';
-console.log('input =', input);
-console.log(exprParser(input));
+// const input = '(begin (define x 2) (+ x 3))';
+// const input = 'pi'
+// console.log('input =', input);
+// console.log(exprParser(input));
+// console.log('Math')
+console.log(exprParser('-5 ') === -5)
+// console.log(exprParser('pi') === 3.141592653589793)
+console.log(exprParser('-5') === -5)
+console.log(exprParser('(sqrt (/ 8 2))') === 2)
+console.log(exprParser('(* (/ 1 2) 3)') === 1.5)
+console.log(exprParser('(+ 1 (+ 2 3))') === 6)
+console.log(exprParser('( + ( + ( + 9 (+ 2 2)) 2) ( + 3 4) )') === 22)
+console.log(exprParser('(+ (+ 1 (- 1 1)) 1)') === 2)
+// console.log(exprParser('(+ 1 1)'))

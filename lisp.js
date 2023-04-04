@@ -10,10 +10,12 @@ const globalEnv = {
 	'=': args => args.length === 2 ? args[0] = args[1] : null,
 	'sqrt': args => Math.sqrt(args[0]),	
 	'pow' : args => args.length === 2 ? Math.pow(args[0], args[1]) : null,
-	'pi' : Math.PI
-	// '#t' : true
+	'pi' : Math.PI,
+	'#t' : true,
+	'#f' : false
 }
 
+// (#f 1 2 3)
 
 
 const booleanParser = input => {
@@ -101,16 +103,34 @@ const specialCharParser = input => {
 	}
 }
 
+
 const symbolParser = input => {
+	const match = input.match(/(\s|\))/)
+
+	if (match === null) return null
+
+	const matchIndex = input.indexOf(match[0])
+
+	const symbol = input.slice(0, matchIndex)
+	input = input.slice(matchIndex)
+
+	return [symbol, input]
+}
+
+const symbolParser1 = input => {
 	let symbol = '';
-	
-	while (!input[0].match(/\s/)) {
-		// console.log('in =', input[0])
+	// if (input[0] === ')') return ['()', input];
+
+	while (input[0] && !input[0].match(/\s/)) {
 		symbol += input[0];
 		input = input.slice(1);
-		if (input[0] === ')') return [symbol, input];	
+		if (input[0] === ')') {
+			return [globalEnv[symbol], input];
+		}	
 	}
-	return [symbol, input.slice(1)];
+	const func = globalEnv[symbol];
+	if (func === undefined) return [symbol, input.slice(1)];
+	return [func, input.slice(1)];
 }
 
 const sExprParser = input => {
@@ -132,49 +152,73 @@ const sExprParser = input => {
 	
 }
 
+const getArgs = input => {
+	const args = [];
+	while (input[0] !== ')') {
+		const parsed = booleanParser(input) || numParser(input) || 
+						stringParser(input) || sExprParser(input);			
+		args.push(parsed[0]);
+		input = parsed[1].trim();
+	}
+	return args;
+}
+
 const sExprEval = input => {
 
-	input = input.trim().slice(1);
-	const args = [];
+	if (!input.startsWith('(')) return null;
+
+	input = input.slice(1).trim();
+
 	const parsedSymbol = symbolParser(input);
 	if (parsedSymbol === null) return null;
+	
 	const symbol = parsedSymbol[0];
 	input = parsedSymbol[1];
-	let result;
+	
+	if (input[0] === ')') return null;
+	
+	if (!splForms.includes(symbol)) {	
 
-	if (!splForms.includes(symbol)) {
-		while (input[0] !== ')') {
-			const parsed = exprParser(input);
-			if (parsed === null) return null;
-			args.push(parsed[0]);
-			input = parsed[1];
-		}
+		const args = getArgs(input);
+
+		// const args = [];
+		// while (input[0] !== ')') {
+		// 	const parsed = exprParser(input);
+		// 	if (parsed === null) return null;
+			
+		// 	args.push(parsed[0]);
+		// 	input = parsed[1].trim();
+		// }
+
 		const func = globalEnv[symbol];
 		if (func === undefined) return null;
-		result = func(args);
+
+		const result = func(args);
 		return [result, input.slice(1)];
-
-	} else {
-
-		switch (symbol) {
-			case 'if':
-				result = ifParser(input);
-				break;
-			case 'define':
-				result = defineParser(input);
-				break;
-			case 'begin':
-				result = beginParser(input);
-				break;
-		}
-		return result;
 	}
+
+	switch (symbol) {
+		case 'if':
+			return ifParser(input);
+		case 'define':
+			return defineParser(input);
+		case 'begin':
+			return beginParser(input);
+	}
+
+	return null;
 }
 
 const exprParser = input => {
 	input = input.trim();
 	return booleanParser(input) || numParser(input) || stringParser(input) 
-		|| sExprEval(input);
+		|| sExprEval(input) || symbolParser(input);
+}
+
+const main = input => {
+	const result = exprParser(input);
+	if (result === null || result[1].length > 0) return null;
+	return result[0];
 }
 
 const splForms = ['if', 'define', 'begin', 'quote', 'lambda'];
@@ -183,13 +227,11 @@ const ifParser = input => {
 	
 	const parsed = exprParser(input);
 	if (parsed === null) return null;
-	const condition = parsed[0];
+	const condition = parsed[0]; //destructure
 	input = parsed[1].trim();
 	let val;
 
-	// if (condition === true) {
-		if (condition !== false) {
-
+	if (condition !== false) {
 		const trueParsed = exprParser(input);
 		if (trueParsed === null) return null;
 		val = trueParsed[0];
@@ -225,27 +267,26 @@ const defineParser = input => {
 
 const beginParser = input => {
 	input = input.trim();
-	while (input[0] !== ')') {
-		const parsed = exprParser(input);
-		if (parsed === null) return null;
-		const val = parsed[0];
-		// console.log('val =', val);
-		input = parsed[1];
-		// console.log('input1 =', input);
-	}
+	const args = getArgs(input);
+	console.log(args)
+	
 }
 
-// const input = '(begin (define x 2) (+ x 3))';
-// const input = 'pi'
-// console.log('input =', input);
-// console.log(exprParser(input));
+const input = '(+ 3 1 2)';
+console.log('input =', input);
+console.log(main(input));
 // console.log('Math')
-console.log(exprParser('-5 ') === -5)
-// console.log(exprParser('pi') === 3.141592653589793)
-console.log(exprParser('-5') === -5)
-console.log(exprParser('(sqrt (/ 8 2))') === 2)
-console.log(exprParser('(* (/ 1 2) 3)') === 1.5)
-console.log(exprParser('(+ 1 (+ 2 3))') === 6)
-console.log(exprParser('( + ( + ( + 9 (+ 2 2)) 2) ( + 3 4) )') === 22)
-console.log(exprParser('(+ (+ 1 (- 1 1)) 1)') === 2)
-// console.log(exprParser('(+ 1 1)'))
+// console.log(main('pi'))
+// console.log(main('-5') === -5)
+// console.log(main('(sqrt (/ 8 2))') === 2)
+// console.log(main('(* (/ 1 2) 3)') === 1.5)
+// console.log(main('(+ 1 (+ 2 3))') === 6)
+// console.log(main('( + ( + ( + 9 ( + 2 2)) 2) ( + 3 4) )') === 22)
+// console.log(main('(+ (+ 1 (- 1 1)) 1)') === 2)
+// console.log(main('(* 5 10)') === 50)
+
+// console.log('If')
+// console.log(main('(if (> 30 45) (+ 1 1) "failedOutput")') === '"failedOutput"')
+// console.log(main('(if (= 12 12) (+ 78 2) 9)') === 80)
+// console.log(main('(if #f 1 0)') === 0)
+// console.log(main('(if #t "abc" 1)') === '"abc"')

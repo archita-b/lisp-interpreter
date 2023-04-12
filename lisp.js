@@ -161,7 +161,7 @@ const symbolEval = (input, env = globalEnv) => {
   const symbol = parsed[0];
   input = parsed[1];
 
-  const func = globalEnv[symbol];
+  const func = env[symbol];
   if (func === undefined) return null;
 
   return [func, input];
@@ -200,7 +200,6 @@ const sExprParser = (input) => {
 };
 
 const sExprEval = (input, env = globalEnv) => {
-  // console.log("env", env);
   if (!input.startsWith("(")) return null;
 
   input = input.slice(1).trim();
@@ -220,29 +219,22 @@ const sExprEval = (input, env = globalEnv) => {
     symbol = parsedSymbol[0];
   }
   input = parsedSymbol[1];
-  // console.log(",,,,,,,,,", symbol, input);
 
   if (!splForms.includes(symbol)) {
     const args = [];
     let result;
     while (input[0] !== ")") {
-      console.log("in0 =", input);
       const parsed = exprParser(input, env);
-      console.log("par =", parsed);
       if (parsed === null) return null;
 
       args.push(parsed[0]);
       input = parsed[1].trim();
     }
 
-    // console.log(" args =", args);
-
     if (typeof symbol === "function") {
-      // console.log("arg =", symbol(args));
       result = symbol(args);
       return [result, input.slice(1)];
     }
-    // if (symbol === localEnv[symbol])
 
     const func = env[symbol];
     if (func === undefined) return null;
@@ -258,7 +250,7 @@ const sExprEval = (input, env = globalEnv) => {
 
   switch (symbol) {
     case "if":
-      return ifParser(input);
+      return ifParser(input, env);
     case "define":
       return defineParser(input);
     case "begin":
@@ -276,8 +268,8 @@ const sExprEval = (input, env = globalEnv) => {
 
 const splForms = ["if", "define", "begin", "quote", "set!", "lambda"];
 
-const ifParser = (input) => {
-  const parsed = exprParser(input);
+const ifParser = (input, env = globalEnv) => {
+  const parsed = exprParser(input, env);
   if (parsed === null) return null;
 
   const condition = parsed[0];
@@ -285,7 +277,8 @@ const ifParser = (input) => {
   let val, parsedvalue;
 
   if (condition !== false) {
-    parsedvalue = exprParser(input);
+    parsedvalue = exprParser(input, env);
+    console.log("par2 =", parsedvalue);
     if (parsedvalue === null) return null;
 
     val = parsedvalue[0];
@@ -297,7 +290,8 @@ const ifParser = (input) => {
   } else {
     input = sExprParser(input)[1];
 
-    parsedvalue = exprParser(input);
+    parsedvalue = exprParser(input, env);
+    console.log("par1 =", parsedvalue);
     if (parsedvalue === null) return null;
 
     val = parsedvalue[0];
@@ -308,21 +302,20 @@ const ifParser = (input) => {
   return [val, input.slice(1)];
 };
 
-const defineParser = (input) => {
+const defineParser = (input, env = globalEnv) => {
   const parsed = symbolParser(input);
   if (parsed === null) return null;
 
   const identifier = parsed[0];
   input = parsed[1];
 
-  const parsedvalue = exprParser(input);
+  const parsedvalue = exprParser(input, env);
   if (parsedvalue === null) return null;
-
   const value = parsedvalue[0];
   input = parsedvalue[1].trim();
 
   if (input[0] !== ")") return null;
-  globalEnv[identifier] = value;
+  env[identifier] = value;
 
   return [value, input.slice(1)];
 };
@@ -371,6 +364,7 @@ const setParser = (input) => {
 
 const lambdaParser = (input) => {
   const arguments = getArgs(input)[0];
+  input = getArgs(input)[1];
   let argsInput = arguments[0].slice(1);
 
   const args = [];
@@ -384,16 +378,12 @@ const lambdaParser = (input) => {
   const localEnv = Object.create(globalEnv);
 
   function lambdaFunc(params) {
-    // console.log("in lambda", args, params);
     params.forEach((param, i) => {
       localEnv[args[i]] = param;
-      // console.log("locEnv", args[i], param);
     });
-    // console.log("eval:", body, localEnv);
-
     return sExprEval(body, localEnv);
   }
-  return [lambdaFunc, ""];
+  return [lambdaFunc, input];
 };
 
 const exprParser = (input, env = globalEnv) => {
@@ -456,11 +446,19 @@ const main = (input) => {
 // console.log(main("x"));
 // console.log(main("y"));
 // console.log(main("(define x (+ 5 5))"));
-console.log(main("((lambda (l b) (* l b)) 2 3)"));
-// console.log(main("((lambda (r) (* pi (* r r))) 10)"));
-// console.log(main('(circle-area 3)') === 28.274333882308138)
-// console.log(main('(define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))'))
-// console.log(main('(fact 4)') === 24)
+// console.log(main("(define area (lambda (l b) (* l b)))"));
+// console.log(main("(area 2 3)"));
+// console.log("input =", "(define area (lambda (l b) (* l b)))");
+// console.log(main("(define circle-area (lambda (r) (* pi (* r r))))"));
+// console.log(main("(circle-area 3)"));
+console.log(
+  "input =",
+  "(define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))"
+);
+console.log(
+  main("(define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))")
+);
+console.log(main("(fact 4)"));
 // console.log(main('(fact 10)') === 3628800)
 
 // console.log("Quote");

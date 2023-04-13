@@ -49,8 +49,8 @@ const globalEnv = {
   },
 
   list: (args) => args,
-  car: (args) => args[0][0],
-  cdr: (args) => args[0].slice(1),
+  car: (args) => (args.length === 1 ? args[0][0] : null),
+  cdr: (args) => (args.length === 1 ? args[0].slice(1) : null),
   sqrt: (args) => Math.sqrt(args[0]),
   pow: (args) => (args.length === 2 ? Math.pow(args[0], args[1]) : null),
   pi: Math.PI,
@@ -222,6 +222,7 @@ const sExprEval = (input, env = globalEnv) => {
     symbol = parsedSymbol[0];
   }
   input = parsedSymbol[1];
+  // console.log("sym =", symbol, ", in =", input);
 
   if (!splForms.includes(symbol)) {
     const args = [];
@@ -259,7 +260,7 @@ const sExprEval = (input, env = globalEnv) => {
     case "begin":
       return beginParser(input);
     case "set!":
-      return setParser(input);
+      return setParser(input, env);
     case "quote":
       return quoteParser(input);
     case "lambda":
@@ -327,7 +328,9 @@ const beginParser = (input) => {
   let args = getArgs(input)[0];
   input = getArgs(input)[1];
 
-  args = args.map((arg) => exprParser(arg)[0]);
+  args = args.map((arg) => {
+    return exprParser(arg) !== null ? exprParser(arg)[0] : null;
+  });
 
   return [args[args.length - 1], input];
 };
@@ -340,14 +343,14 @@ const quoteParser = (input) => {
 
     if (input[0] === ")") {
       datum += input[0];
-      input = input.slice(1);
+      input = input.slice(1).trim();
     }
   }
   if (!input[0]) return [datum.slice(0, datum.length - 1), input];
   return [datum, input.slice(1)];
 };
 
-const setParser = (input) => {
+const setParser = (input, env = globalEnv) => {
   const parsed = symbolParser(input);
   if (parsed === null) return null;
 
@@ -406,138 +409,221 @@ const main = (input) => {
   return result[0];
 };
 
-// console.log("Math");
-// console.log(main("()"));
-// console.log("input =", "pi, ", main("pi"));
-// console.log("input =", "(/ 1 0),", main("(/ 1 0)"));
-// console.log("input =", "(sqrt (/ 8 2)),", main("(sqrt (/ 8 2))"));
-// console.log("input =", "(* (/ 1 2) 3),", main("(* (/ 1 2) 3)"));
-// console.log("input =", "(+ 1 (+ 2 3)),", main("(+ 1 (+ 2 3))"));
-// console.log(
-//   "input =",
-//   "( + ( + ( + 9 ( + 2 2)) 2) ( - 3 4) ),",
-//   main("( + ( + ( + 9 ( + 2 2)) 2) ( - 3 4) )")
-// );
-// console.log(main("(list 1 2 3)"));
-// console.log(main("(car (list 1 2 3))"));
-// console.log(main("(cdr (list 1 2 3))"));
-// console.log("input =", "(+ (+ 1 (- 1 1)) 1),", main("(+ (+ 1 (- 1 1)) 1)"));
-// console.log("input =", "(pow 5 3),", main("(pow 5 3)"));
-// console.log("input =", "((* 5 10),", main("((* 5 10)"));
-// console.log("input =", "(/ 5 10)),", main("(* 5 10))"));
-// console.log("input =", "(- 5 (+ 3 4)) 6),", main("(- 5 (+ 3 4)) 6)"));
+const testCases = [
+  // math test cases:
+  {
+    msg: "global expression has extra bracket at the begining",
+    input: "((* 5 10)",
+    expectedOutput: null,
+  },
+  {
+    msg: "global expression has extra bracket at the end",
+    input: "(/ 5 10))",
+    expectedOutput: null,
+  },
+  {
+    msg: "global expression has extra bracket nested global expression",
+    input: "(- 5 (+ 3 4)) 6)",
+    expectedOutput: null,
+  },
+  {
+    msg: "should eval empty parentheses",
+    input: "()",
+    expectedOutput: "()",
+  },
+  {
+    msg: "should evaluate global value",
+    input: "pi",
+    expectedOutput: Math.PI,
+  },
+  {
+    msg: "should evaluate global expression",
+    input: "(/ 1 0)",
+    expectedOutput: Infinity,
+  },
+  {
+    msg: "should evaluate nested global expression",
+    input: "(sqrt (/ 8 2))",
+    expectedOutput: 2,
+  },
+  {
+    msg: "should evaluate global expression",
+    input: "(+ (+ 1 (- 1 1)) 1)",
+    expectedOutput: 2,
+  },
+  {
+    msg: "should evaluate nested global expression",
+    input: "(* (/ 1 2) 3)",
+    expectedOutput: 1.5,
+  },
+  {
+    msg: "should evaluate nested global expression with extra spaces in between",
+    input: "( + 1 ( + 2 3 ) )",
+    expectedOutput: 6,
+  },
+  {
+    msg: "should evaluate nested global expression",
+    input: "( + ( + ( + 9 ( + 2 2)) 2) ( - 3 4) )",
+    expectedOutput: 14,
+  },
+  {
+    msg: "should evaluate global expression 'list'",
+    input: "(list 1 2 3)",
+    expectedOutput: [1, 2, 3],
+  },
+  {
+    msg: "should evaluate global expression 'car'",
+    input: "(car (list 1 2 3))",
+    expectedOutput: 1,
+  },
+  {
+    msg: "should evaluate global expression 'cdr'",
+    input: "(cdr (list 1 2 3))",
+    expectedOutput: [2, 3],
+  },
+  {
+    msg: "should evaluate global expression exponent",
+    input: "(pow 5 3)",
+    expectedOutput: 125,
+  },
+  // if test cases
+  {
+    msg: "'if' expression without <alternate> should be unspecified",
+    input: "(if #f 1)",
+    expectedOutput: null,
+  },
+  {
+    msg: "'if' expression without <alternate> should evaluate",
+    input: "(if #t 1)",
+    expectedOutput: 1,
+  },
+  {
+    msg: "'if' expression should evaluate",
+    input: "(if #f 1 0)",
+    expectedOutput: 0,
+  },
+  {
+    msg: "nested 'if' expression should evaluate",
+    input: "(if (= 12 12) (+ 78 2) 9)",
+    expectedOutput: 80,
+  },
+  {
+    msg: "nested 'if' expression should evaluate",
+    input: "((if #t + *) 3 4)",
+    expectedOutput: 7,
+  },
+  {
+    msg: "nested 'if' expression should evaluate",
+    input: "(if (> 30 45) (+ 1 1) (+ 2 2))",
+    expectedOutput: 4,
+  },
+  {
+    msg: "nested 'if' expression should evaluate",
+    input: "(if (> 30 45) (+ 1 1) (if (> 12 12) (+ 78 2) 9))",
+    expectedOutput: 9,
+  },
+  {
+    msg: "nested 'if' expression should evaluate",
+    input: "(if (define a 10) a 2)",
+    expectedOutput: 10,
+  },
+  // define test cases
+  {
+    msg: "extra bracket within 'define' expression",
+    input: "(define (x (+ 5 5))",
+    expectedOutput: null,
+  },
+  {
+    msg: "extra bracket at the end of 'define' expression",
+    input: "(define x (+ 5 5)))",
+    expectedOutput: null,
+  },
+  {
+    msg: "should evaluate nested 'define' expression",
+    input: "(define x (define y 10))",
+    expectedOutput: 10,
+  },
+  {
+    msg: "should evaluate nested 'define' expression",
+    input: "(define x (+ 5 5))",
+    expectedOutput: 10,
+  },
+  // lambda test cases
+  {
+    msg: "should evaluate 'lambda' expression",
+    input: "(begin (define area (lambda (l b) (* l b))) (area 2 3))",
+    expectedOutput: 6,
+  },
+  {
+    msg: "should evaluate 'lambda' expression",
+    input:
+      "(begin (define circle-area (lambda (r) (* pi (* r r)))) (circle-area 10))",
+    expectedOutput: 314.1592653589793,
+  },
+  {
+    msg: "should evaluate 'lambda' expression",
+    input:
+      "(begin (define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1)))))) (fact 5))",
+    expectedOutput: 120,
+  },
+  // quote test cases
+  {
+    msg: "special form expression has extra bracket at the end",
+    input: "(quote (+ 1 1)))",
+    expectedOutput: null,
+  },
+  {
+    msg: "should evaluate special form expression",
+    input: "(quote a)",
+    expectedOutput: "a",
+  },
+  {
+    msg: "should evaluate special form expression",
+    input: "(quote +)",
+    expectedOutput: "+",
+  },
+  {
+    msg: "should evaluate special form expression",
+    input: "(quote #(a b c))",
+    expectedOutput: "#(a b c)",
+  },
+  {
+    msg: "should evaluate special form expression",
+    input: "(quote (+ 1 1) )",
+    expectedOutput: "(+ 1 1)",
+  },
+  //set test cases
+  {
+    msg: "should evaluate special form expression",
+    input: "(begin (define r 1 ) (set! s 2))",
+    expectedOutput: null,
+  },
+  {
+    msg: "should evaluate special form expression",
+    input: "(begin (define x 2 ) (+ x 1) (set! x 4) (+ x 1))",
+    expectedOutput: 5,
+  },
+];
 
-// console.log("If");
-// console.log(
-//   "input =",
-//   '(if (> 30 45) (+ 1 1) "failedOutput"), ',
-//   main('(if (> 30 45) (+ 1 1) "failedOutput")')
-// );
-// console.log(
-//   "input =",
-//   "(if (> 30 45) (+ 1 1) (if (> 12 12) (+ 78 2) 9)),",
-//   main("(if (> 30 45) (+ 1 1) (if (> 12 12) (+ 78 2) 9))")
-// );
-// console.log(
-//   "input =",
-//   "(if (define a 10) a 2),",
-//   main("(if (define a 10) a 2)")
-// );
-// console.log(
-//   "input =",
-//   "(if (= 12 12) (+ 78 2) 9), ",
-//   main("(if (= 12 12) (+ 78 2) 9)")
-// );
-// console.log("input =", "(if #f 1 0),", main("(if #f 1 0)"));
-// console.log("input =", "(if #t 1), ", main("(if #t 1)"));
-// console.log("input =", "(if #f 1), ", main("(if #f 1)"));
-// console.log("input =", "(define a true), ", main("(define a true)"));
-// console.log(
-//   "input =",
-//   "(if a (define a 10) 2), ",
-//   main("(if a (define a 10) 2)")
-// );
-// console.log("input =", "((if #t + *) 3 4),", main("((if #t + *) 3 4)"));
+const results = testCases.map((test) => {
+  const output = main(test.input);
+  const passed = String(test.expectedOutput) === String(output);
 
-// console.log("Define");
-// console.log(
-//   "input =",
-//   "(define x (define y 10)),",
-//   main("(define x (define y 10))")
-// );
-// console.log("input =", "(define x (+ 5 5)),", main("(define x (+ 5 5))"));
-// console.log("input =", "(define (x (+ 5 5)),", main("(define (x (+ 5 5))"));
-// console.log("input =", "(define x (+ 5 5))),", main("(define x (+ 5 5)))"));
-// console.log("input =", "(define area (lambda (l b) (* l b))),");
-// main("(define area (lambda (l b) (* l b)))");
-// console.log("input =", "(area 2 3),", main("(area 2 3)"));
-// console.log("input =", "(define circle-area (lambda (r) (* pi (* r r))))");
-// main("(define circle-area (lambda (r) (* pi (* r r))))");
-// console.log("input =", "(circle-area 10),", main("(circle-area 10)"));
-// console.log(
-//   "input =",
-//   "(define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))"
-// );
-// main("(define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))");
-// console.log("input =", "(fact 5),", main("(fact 5)"));
+  return { ...test, output, passed };
+});
 
-// console.log("Quote");
-// console.log(main("(quote a)"));
-// console.log(main("(quote +)"));
-// console.log(main("(quote #(a b c))"));
-// console.log(main("(quote (+ 1 1))"));
-// console.log(main("(quote (+ 1 1)))"));
-
-// console.log("Set!");
-// console.log(main("(define r 1 )"));
-// console.log(main("(set! r 10)"));
-// console.log(main("(+ r r )"));
-
-// import main from "./lisp.js";
-
-// main("()");
-// console.log(main("(+ 1 1)"));
-// // console.log(main("(dw 3 3 )"));
-// console.log(main("(define circle-area (lambda (r) (* pi (* r r))))"));
-// console.log(main("(circle-area 3)"));
-// console.log(
-//   main("(define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1))))))")
-// );
-// console.log(main("(fact 10)"));
-// console.log(main("(fact 100)"));
-// console.log(main("(circle-area (fact 10))"));
-// // console.log(main("(define first car)"));
-// // console.log(main("(define rest cdr)"));
-// console.log(
-//   main(
-//     "(define count (lambda (item L) (if L (+ (equal? item (first L)) (count item (rest L))) 0)))"
-//   )
-// );
-// console.log(main("(count 0 (list 0 1 2 3 0 0))"));
-// console.log(
-//   main(
-//     "(count (quote the) (quote (the more the merrier the bigger the better)))"
-//   )
-// );
-main("(define twice (lambda (x) (* 2 x)))");
-console.log(main("(twice 5)"));
-main("(define repeat (lambda (f) (lambda (x) (f (f x)))))");
-console.log(main("((repeat twice) 10)"));
-// console.log(main("((repeat (repeat twice)) 10)"));
-// console.log(main("((repeat (repeat (repeat twice))) 10)"));
-// console.log(main("((repeat (repeat (repeat (repeat twice)))) 10)"));
-// // console.log(main("(pow 2 16)"));
-// console.log(
-//   main(
-//     "(define fib (lambda (n) (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2))))))"
-//   )
-// );
-// console.log(
-//   main(
-//     "(define range (lambda (a b) (if (= a b) (quote ()) (cons a (range (+ a 1) b)))))"
-//   )
-// );
-
-// console.log(main("(range 0 10)"));
-// console.log(main("(map fib (range 0 10))"));
-// console.log(main("(map fib (range 0 20))"));
+results
+  .filter((result) => !result.passed)
+  .forEach((result) => {
+    console.log(result.msg);
+    console.log("input:");
+    console.log(result.input);
+    console.log("output:");
+    console.log(result.output);
+    console.log("expected output:");
+    console.log(result.expectedOutput);
+    console.log(result.passed ? "PASSED" : "FAILED");
+    console.log("\n====================\n");
+  });
+console.log("PASSED:", results.filter((result) => result.passed).length);
+console.log("FAILED:", results.filter((result) => !result.passed).length);

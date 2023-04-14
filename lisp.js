@@ -566,6 +566,12 @@ const testCases = [
       "(begin (define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1)))))) (fact 5))",
     expectedOutput: 120,
   },
+  // {
+  //   msg: "should evaluate 'lambda' expression",
+  //   input:
+  //     "(begin (begin (define twice (lambda (x) (* 2 x))) (twice 5)) (define repeat (lambda (f) (lambda (x) (f (f x))))) ((repeat twice) 10))",
+  //   expectedOutput: 40,
+  // },
   // quote test cases
   {
     msg: "special form expression has extra bracket at the end",

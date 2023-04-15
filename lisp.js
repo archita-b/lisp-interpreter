@@ -222,7 +222,6 @@ const sExprEval = (input, env = globalEnv) => {
     symbol = parsedSymbol[0];
   }
   input = parsedSymbol[1];
-  // console.log("sym =", symbol, ", in =", input);
 
   if (!splForms.includes(symbol)) {
     const args = [];
@@ -256,15 +255,15 @@ const sExprEval = (input, env = globalEnv) => {
     case "if":
       return ifParser(input, env);
     case "define":
-      return defineParser(input);
+      return defineParser(input, env);
     case "begin":
-      return beginParser(input);
+      return beginParser(input, env);
     case "set!":
       return setParser(input, env);
     case "quote":
-      return quoteParser(input);
+      return quoteParser(input, env);
     case "lambda":
-      return lambdaParser(input);
+      return lambdaParser(input, env);
   }
 
   return null;
@@ -322,7 +321,7 @@ const defineParser = (input, env = globalEnv) => {
   return [value, input.slice(1)];
 };
 
-const beginParser = (input) => {
+const beginParser = (input, env = globalEnv) => {
   input = input.trim();
 
   let args = getArgs(input)[0];
@@ -335,18 +334,21 @@ const beginParser = (input) => {
   return [args[args.length - 1], input];
 };
 
-const quoteParser = (input) => {
+const quoteParser = (input, env = globalEnv) => {
   let datum = "";
-  while (input && input[0] !== ")") {
-    datum += input[0];
-    input = input.slice(1);
 
-    if (input[0] === ")") {
+  while (input[0] !== ")") {
+    if (!input.startsWith("(")) {
       datum += input[0];
       input = input.slice(1).trim();
+    } else {
+      const result = sExprParser(input);
+      if (result === null) return null;
+      datum += result[0];
+      input = result[1].trim();
     }
+    if (!input) return null;
   }
-  if (!input[0]) return [datum.slice(0, datum.length - 1), input];
   return [datum, input.slice(1)];
 };
 
@@ -366,9 +368,10 @@ const setParser = (input, env = globalEnv) => {
   return [value[0], input.slice(1)];
 };
 
-const lambdaParser = (input) => {
-  const arguments = getArgs(input)[0];
-  input = getArgs(input)[1];
+const lambdaParser = (input, env = globalEnv) => {
+  const argsArr = getArgs(input);
+  const arguments = argsArr[0];
+  input = argsArr[1];
   let argsInput = arguments[0].slice(1);
 
   const args = [];
@@ -379,7 +382,7 @@ const lambdaParser = (input) => {
     argsInput = parsed[1];
   }
   const body = arguments[1];
-  const localEnv = Object.create(globalEnv);
+  const localEnv = Object.create(env);
 
   function lambdaFunc(params) {
     params.forEach((param, i) => {
@@ -430,6 +433,11 @@ const testCases = [
     msg: "should eval empty parentheses",
     input: "()",
     expectedOutput: "()",
+  },
+  {
+    msg: "should eval global expression",
+    input: "(+)",
+    expectedOutput: 0,
   },
   {
     msg: "should evaluate global value",
@@ -566,17 +574,22 @@ const testCases = [
       "(begin (define fact (lambda (n) (if (<= n 1) 1 (* n (fact (- n 1)))))) (fact 5))",
     expectedOutput: 120,
   },
-  // {
-  //   msg: "should evaluate 'lambda' expression",
-  //   input:
-  //     "(begin (begin (define twice (lambda (x) (* 2 x))) (twice 5)) (define repeat (lambda (f) (lambda (x) (f (f x))))) ((repeat twice) 10))",
-  //   expectedOutput: 40,
-  // },
+  {
+    msg: "should evaluate 'lambda' expression",
+    input: `(begin (define twice (lambda (x) (* 2 x))) 
+    (define repeat (lambda (f) (lambda (x) (f (f x))))) ((repeat twice) 10))`,
+    expectedOutput: 40,
+  },
   // quote test cases
   {
-    msg: "special form expression has extra bracket at the end",
+    msg: "'quote' expression has extra bracket at the end",
     input: "(quote (+ 1 1)))",
     expectedOutput: null,
+  },
+  {
+    msg: "'quote' expression has extra bracket at the end",
+    input: "(quote (+ 1 (+ 1 1)))",
+    expectedOutput: "(+ 1 (+ 1 1))",
   },
   {
     msg: "should evaluate special form expression",

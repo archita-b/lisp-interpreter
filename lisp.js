@@ -202,73 +202,6 @@ const sExprParser = (input) => {
   }
 };
 
-const sExprEval = (input, env = globalEnv) => {
-  if (!input.startsWith("(")) return null;
-
-  input = input.slice(1).trim();
-
-  if (input[0] === ")") return ["()", input.slice(1)];
-
-  const parsedSymbol = symbolParser(input) || sExprParser(input);
-  if (parsedSymbol === null) return null;
-
-  let symbol;
-
-  if (parsedSymbol[0].startsWith("(")) {
-    const parsedSym = exprParser(parsedSymbol[0]);
-    if (parsedSym === null) return null;
-    symbol = parsedSym[0];
-  } else {
-    symbol = parsedSymbol[0];
-  }
-  input = parsedSymbol[1];
-
-  if (!splForms.includes(symbol)) {
-    const args = [];
-    let result;
-    while (input[0] !== ")") {
-      const parsed = exprParser(input, env);
-      if (parsed === null) return null;
-
-      args.push(parsed[0]);
-      input = parsed[1].trim();
-    }
-
-    if (typeof symbol === "function") {
-      result = symbol(args);
-      return [result, input.slice(1)];
-    }
-
-    const func = env[symbol];
-    if (func === undefined) return null;
-    if (typeof func !== "function") {
-      symbol = func;
-      return [symbol, input.slice(1)];
-    }
-
-    result = func(args);
-
-    return [result, input.slice(1)];
-  }
-
-  switch (symbol) {
-    case "if":
-      return ifParser(input, env);
-    case "define":
-      return defineParser(input, env);
-    case "begin":
-      return beginParser(input, env);
-    case "set!":
-      return setParser(input, env);
-    case "quote":
-      return quoteParser(input, env);
-    case "lambda":
-      return lambdaParser(input, env);
-  }
-
-  return null;
-};
-
 const splForms = ["if", "define", "begin", "quote", "set!", "lambda"];
 
 const ifParser = (input, env = globalEnv) => {
@@ -393,6 +326,73 @@ const lambdaParser = (input, env = globalEnv) => {
     return result[0];
   }
   return [lambdaFunc, input];
+};
+
+const sExprEval = (input, env = globalEnv) => {
+  if (!input.startsWith("(")) return null;
+
+  input = input.slice(1).trim();
+
+  if (input[0] === ")") return ["()", input.slice(1)];
+
+  const parsedSymbol = symbolParser(input) || sExprParser(input);
+  if (parsedSymbol === null) return null;
+
+  let symbol;
+
+  if (parsedSymbol[0].startsWith("(")) {
+    const parsedSym = exprParser(parsedSymbol[0]);
+    if (parsedSym === null) return null;
+    symbol = parsedSym[0];
+  } else {
+    symbol = parsedSymbol[0];
+  }
+  input = parsedSymbol[1];
+
+  if (!splForms.includes(symbol)) {
+    const args = [];
+    let result;
+    while (input[0] !== ")") {
+      const parsed = exprParser(input, env);
+      if (parsed === null) return null;
+
+      args.push(parsed[0]);
+      input = parsed[1].trim();
+    }
+
+    if (typeof symbol === "function") {
+      result = symbol(args);
+      return [result, input.slice(1)];
+    }
+
+    const func = env[symbol];
+    if (func === undefined) return null;
+    if (typeof func !== "function") {
+      symbol = func;
+      return [symbol, input.slice(1)];
+    }
+
+    result = func(args);
+
+    return [result, input.slice(1)];
+  }
+
+  switch (symbol) {
+    case "if":
+      return ifParser(input, env);
+    case "define":
+      return defineParser(input, env);
+    case "begin":
+      return beginParser(input, env);
+    case "set!":
+      return setParser(input, env);
+    case "quote":
+      return quoteParser(input, env);
+    case "lambda":
+      return lambdaParser(input, env);
+  }
+
+  return null;
 };
 
 const exprParser = (input, env = globalEnv) => {

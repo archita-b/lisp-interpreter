@@ -79,11 +79,13 @@ const numParser = (input) => {
 const stringParser = (input) => {
   if (!input.startsWith('"')) return null;
   input = input.slice(1);
+
   let result = "";
   while (input[0] !== '"') {
-    if (input[0].match(/[\u0000-\u001f]/i)) return null;
+    // if (input[0].match(/[\u0000-\u001f]/i)) return null;
     if (input[0] === "\\") {
       let sChar = specialCharParser(input);
+
       if (sChar !== null) {
         result += sChar[0];
         input = sChar[1];
@@ -159,6 +161,7 @@ const symbolParser = (input) => {
 
 const symbolEval = (input, env = globalEnv) => {
   const parsed = symbolParser(input);
+
   if (parsed === null) return null;
 
   const symbol = parsed[0];
@@ -206,6 +209,7 @@ const splForms = ["if", "define", "begin", "quote", "set!", "lambda"];
 
 const ifParser = (input, env = globalEnv) => {
   const parsed = exprParser(input, env);
+
   if (parsed === null) return null;
 
   const condition = parsed[0];
@@ -244,7 +248,9 @@ const defineParser = (input, env = globalEnv) => {
   input = parsed[1];
 
   const parsedvalue = exprParser(input, env);
+
   if (parsedvalue === null) return null;
+
   const value = parsedvalue[0];
   input = parsedvalue[1].trim();
 
@@ -411,6 +417,11 @@ const main = (input) => {
   if (result === null || result[1].length > 0) return null;
   return result[0];
 };
+
+// const input =
+//   "(begin (define twice (lambda (x) (* 2 x))) (define repeat (lambda (f) (lambda (x) (f (f x))))) ((repeat (repeat twice)) 10))";
+// console.log("input =", input);
+// console.log(main(input));
 
 const testCases = [
   // math test cases:
